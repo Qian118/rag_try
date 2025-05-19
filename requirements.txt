@@ -1,0 +1,4 @@
+faiss_cpu==1.7.4
+numpy==1.25.1
+torch==2.1.2+cu121
+transformers==4.33.2

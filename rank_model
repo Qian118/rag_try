@@ -1,0 +1,58 @@
+import json
+from transformers import BertTokenizer, BertModel
+import torch
+import faiss
+import numpy as np
+import pickle
+device = torch.device("cuda:0,1") 
+model_path="my_model"
+tokenizer = BertTokenizer.from_pretrained(model_path)
+model = BertModel.from_pretrained(model_path).cuda()
+def get_vector(sentence):
+    encoded_input = tokenizer([sentence], padding=True, truncation=True, max_length=512,return_tensors='pt')
+    # Compute token embeddings
+    encoded_input=encoded_input.to(device)
+    with torch.no_grad():
+        model_output = model(**encoded_input)
+    # Perform pooling. In this case, mean pooling.
+    sentence_embeddings = model_output[1]
+    return sentence_embeddings
+
+def normal(vector):
+    vector=vector.tolist()[0]
+    ss=sum([s**2 for s in vector])**0.5
+    return [round(s/ss,5) for s in vector]
+with open("knowledge_zhu",encoding="utf-8") as f:
+    lines=f.readlines()
+disease_desc={}
+all_desc=[]
+data=[json.loads(line.strip()) for line in lines]
+id_vector=[]
+count=0
+for s in data[:800000]:
+    count+=1
+    print (count,len(data))
+    desc=s["病情描述"]
+    id=s['id']
+    vector=get_vector(desc)
+    vector=normal(vector)
+    id_vector.append(vector)
+index = faiss.IndexFlatL2(768)
+'''
+这行代码是使用Faiss库）来创建一个特定类型的索引。
+Faiss是一个用于高效相似性搜索和密集向量搜索的库，特别适合于高维向量空间中的近似最近邻搜索。
+IndexFlatL2: 这是一个特定的索引类型。"Index"意味着它是一个用于搜索的索引结构，"Flat"表明这个索引是在内存中以平坦（非分层）
+的方式存储数据，没有额外的加速结构，而"L2"指的是它使用的是L2范数（即欧几里得距离）作为度量标准来衡量向量间的相似性。简而言之，
+IndexFlatL2 是一个基于完全穷举搜索的索引，它计算查询向量与数据库中每个向量的欧氏距离，找出最近邻。
+768: 这个数字表示向量的维度。在创建索引时，你需要指定向量的空间维度，
+这里是768维。这意味着你打算用这个索引来处理或搜索768维的向量数据。
+综上所述，这行代码的作用是创建一个基于L2范数的欧氏距离计算、适用于768维向量的索引结构，用于后续的相似性搜索任务。
+'''
+
+id_vector=np.array(id_vector)
+index.add(id_vector)    
+with open("id_vector_zhu","wb") as f:
+    pickle.dump(index,f)
+
+#综上所述，这段代码的作用是将Python中的一个变量（在这个例子中是index）通过pickle序列化后保存到一个名为
+# "id_vector_zhu"的二进制文件中。这种方式常用于保存复杂的数据结构，以便后续可以通过pickle.load()反序列化回来继续使用。
